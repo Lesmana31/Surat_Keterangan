@@ -211,8 +211,19 @@ button:active{transform:translateY(1px)}
     text-align:center;
     font-size:18px;
     font-weight:bold;
-    margin:12px 0;
+    margin:10px 0 12px;
 }
+
+.asesi-list-pdf{display:block;width:92%;margin:0 auto;text-align:left}
+.asesi-item-pdf{margin:0;line-height:1.35;white-space:nowrap}
+.asesi-list-pdf.two-col{display:grid;grid-template-columns:1fr 1fr;column-gap:28px;row-gap:2px}
+.asesi-form-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.asesi-form-row .nomor-asesi{width:34px;min-width:34px;text-align:center;font-weight:bold}
+.asesi-form-row input{flex:1}
+.btn-tambah-asesi,.btn-hapus-asesi{margin:0;padding:8px 12px;color:#fff}
+.btn-tambah-asesi{background:#16a34a}.btn-hapus-asesi{background:#dc2626}
+.tanggal-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tanggal-help{font-size:12px;color:#666;margin-top:4px}
 
 .skema{
     text-align:center;
@@ -269,11 +280,11 @@ button:active{transform:translateY(1px)}
 
 .ttd-img{
     position:absolute;
-    width:130px;
-    height:82px;
-    max-width:130px;
-    max-height:82px;
-    left:25px;
+    width:135px;
+    height:86px;
+    max-width:135px;
+    max-height:86px;
+    left:20px;
     top:0;
     object-fit:contain;
     object-position:center;
@@ -283,15 +294,12 @@ button:active{transform:translateY(1px)}
 
 .cap{
     position:absolute;
-    width:92px;
-    height:82px;
-    max-width:92px;
-    max-height:82px;
-
-    /* GESER CAP LEBIH KE KIRI */
+    width:98px;
+    height:86px;
+    max-width:98px;
+    max-height:86px;
     left:75px;
-
-    top:1px;
+    top:2px;
     object-fit:contain;
     object-position:center;
     display:block;
@@ -327,6 +335,10 @@ button:active{transform:translateY(1px)}
 /* ================================
    DATABASE
 ================================ */
+.aksi-cell{white-space:nowrap}
+.btn-edit,.btn-delete{border:0;border-radius:4px;padding:6px 9px;color:#fff;cursor:pointer;margin:0 3px 0 0;font-size:12px}
+.btn-edit{background:#2563eb}.btn-delete{background:#dc2626}
+
 .database{margin-top:30px}
 
 .database-toolbar{
@@ -398,7 +410,14 @@ button:active{transform:translateY(1px)}
 
 <div class="form-group">
     <label>Nama Asesi</label>
-    <input id="nama" type="text" placeholder="Nama lengkap asesi">
+    <div id="asesiList">
+        <div class="asesi-form-row">
+            <span class="nomor-asesi">1.</span>
+            <input class="nama-asesi-input" type="text" placeholder="Nama lengkap asesi">
+        </div>
+    </div>
+    <button type="button" class="btn-tambah-asesi" onclick="tambahAsesi()">+ Tambah Asesi</button>
+    <div class="tanggal-help">Untuk satu orang cukup satu nama. Untuk kelompok, tekan <b>+ Tambah Asesi</b>.</div>
 </div>
 
 <div class="form-group">
@@ -443,7 +462,10 @@ button:active{transform:translateY(1px)}
 
 <div class="form-group">
     <label>Tanggal Uji</label>
-    <input id="tanggal" type="date">
+    <div class="tanggal-row">
+        <div><input id="tanggal" type="date"><div class="tanggal-help">Tanggal mulai ujian</div></div>
+        <div><input id="tanggalAkhir" type="date"><div class="tanggal-help">Tanggal selesai (kosongkan jika 1 hari)</div></div>
+    </div>
 </div>
 
 <div class="form-group">
@@ -492,6 +514,7 @@ button:active{transform:translateY(1px)}
                 <th>Jenis TUK</th>
                 <th>Nama TUK</th>
                 <th>Tanggal Uji</th>
+                <th>Aksi</th>
             </tr>
         </thead>
         <tbody id="tableBody"></tbody>
@@ -509,6 +532,7 @@ let db = JSON.parse(localStorage.getItem("db_suket_lsp_las")) || [];
 let welderData = JSON.parse(localStorage.getItem("welder_lsp_las")) || [];
 let tukData = JSON.parse(localStorage.getItem("tuk_lsp_las")) || [];
 let currentRecord = null;
+let editingIndex = -1;
 
 /* =====================================================
    BULAN
@@ -536,6 +560,29 @@ function formatTanggal(tanggal){
     return String(d.getDate()).padStart(2,"0")
         + " " + namaBulan[d.getMonth()]
         + " " + d.getFullYear();
+}
+
+function formatTanggalRange(tanggalMulai, tanggalAkhir){
+    if(!tanggalMulai) return "";
+    if(!tanggalAkhir || tanggalAkhir === tanggalMulai) return formatTanggal(tanggalMulai);
+
+    const a = new Date(tanggalMulai + "T00:00:00");
+    const b = new Date(tanggalAkhir + "T00:00:00");
+    const hariA = String(a.getDate()).padStart(2,"0");
+    const hariB = String(b.getDate()).padStart(2,"0");
+
+    // Jika masih bulan dan tahun yang sama: 17-20 September 2026
+    if(a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth()){
+        return hariA + "-" + hariB + " " + namaBulan[a.getMonth()] + " " + a.getFullYear();
+    }
+
+    // Jika beda bulan/tahun: 17 September 2026-20 Oktober 2026
+    return formatTanggal(tanggalMulai) + "-" + hariB + " " + namaBulan[b.getMonth()] + " " + b.getFullYear();
+}
+
+function getTodayLocal(){
+    const d = new Date();
+    return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
 }
 
 function formatTanggalFile(tanggal){
@@ -659,6 +706,35 @@ function loadTuk(){
 }
 
 /* =====================================================
+   DAFTAR ASESI / KELOMPOK
+===================================================== */
+function getAsesiNames(){
+    return Array.from(document.querySelectorAll(".nama-asesi-input")).map(x=>x.value.trim()).filter(Boolean);
+}
+function updateNomorAsesi(){
+    document.querySelectorAll("#asesiList .asesi-form-row").forEach((row,i)=>{ row.querySelector(".nomor-asesi").textContent=(i+1)+"."; });
+}
+function tambahAsesi(value=""){
+    const row=document.createElement("div"); row.className="asesi-form-row";
+    row.innerHTML='<span class="nomor-asesi"></span><input class="nama-asesi-input" type="text" placeholder="Nama asesi berikutnya"><button type="button" class="btn-hapus-asesi" onclick="hapusAsesi(this)">×</button>';
+    row.querySelector("input").value=value; document.getElementById("asesiList").appendChild(row); updateNomorAsesi();
+}
+function hapusAsesi(btn){
+    const rows=document.querySelectorAll("#asesiList .asesi-form-row");
+    if(rows.length===1){rows[0].querySelector("input").value="";return;}
+    btn.closest(".asesi-form-row").remove(); updateNomorAsesi();
+}
+function setAsesiNames(names){
+    const list=document.getElementById("asesiList"); list.innerHTML="";
+    const arr=(Array.isArray(names)?names:[]).filter(Boolean); if(!arr.length) arr.push("");
+    arr.forEach((name,i)=>{
+        const row=document.createElement("div"); row.className="asesi-form-row";
+        row.innerHTML='<span class="nomor-asesi">'+(i+1)+'.</span><input class="nama-asesi-input" type="text" placeholder="Nama lengkap asesi">'+(i?' <button type="button" class="btn-hapus-asesi" onclick="hapusAsesi(this)">×</button>':'');
+        row.querySelector("input").value=name; list.appendChild(row);
+    }); updateNomorAsesi();
+}
+
+/* =====================================================
    ESCAPE HTML
 ===================================================== */
 
@@ -676,44 +752,29 @@ function escapeHtml(value){
 ===================================================== */
 
 function renderTable(){
-    const tbody = document.getElementById("tableBody");
-    const filter = document.getElementById("filterBulan").value;
-
-    tbody.innerHTML = "";
-
-    const filtered = db.filter(item => {
-        if(!filter) return true;
-
-        const tanggal = item.tanggal || "";
-        if(!tanggal) return false;
-
-        const d = new Date(tanggal + "T00:00:00");
-        return String(d.getMonth()+1) === String(filter);
-    });
-
-    if(filtered.length === 0){
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="6" class="empty-row">Belum ada data surat.</td>
-            </tr>
-        `;
-        return;
-    }
-
-    filtered.forEach(item => {
-        const tr = document.createElement("tr");
-
-        tr.innerHTML = `
-            <td>${escapeHtml(item.nomor || "")}</td>
-            <td>${escapeHtml(item.nama || "")}</td>
-            <td>${escapeHtml(item.skema || "")}</td>
-            <td>${escapeHtml(item.jenisTuk || "")}</td>
-            <td>${escapeHtml(item.tuk || "")}</td>
-            <td>${escapeHtml(formatTanggal(item.tanggal || ""))}</td>
-        `;
-
+    const tbody=document.getElementById("tableBody"); const filter=document.getElementById("filterBulan").value; tbody.innerHTML="";
+    const filtered=db.filter(item=>{ if(!filter) return true; if(!item.tanggal) return false; return String(new Date(item.tanggal+"T00:00:00").getMonth()+1)===String(filter); });
+    if(!filtered.length){ tbody.innerHTML='<tr><td colspan="7" class="empty-row">Belum ada data surat.</td></tr>'; return; }
+    filtered.forEach(item=>{
+        const index=db.indexOf(item); const tr=document.createElement("tr");
+        const tgl=item.tanggalAkhir&&item.tanggalAkhir!==item.tanggal?formatTanggalRange(item.tanggal,item.tanggalAkhir):formatTanggal(item.tanggal||"");
+        tr.innerHTML=`<td>${escapeHtml(item.nomor||"")}</td><td>${escapeHtml(String(item.nama||"").replace(/\n/g," | "))}</td><td>${escapeHtml(item.skema||"")}</td><td>${escapeHtml(item.jenisTuk||"")}</td><td>${escapeHtml(item.tuk||"")}</td><td>${escapeHtml(tgl)}</td><td class="aksi-cell"><button type="button" class="btn-edit" onclick="editRecord(${index})">Edit</button><button type="button" class="btn-delete" onclick="hapusRecord(${index})">Hapus</button></td>`;
         tbody.appendChild(tr);
     });
+}
+
+function editRecord(index){
+    const item=db[index]; if(!item) return; editingIndex=index; currentRecord=null;
+    document.getElementById("nomor").value=item.nomor||"";
+    document.getElementById("skema").value=item.skemaBase||(item.skema||"").replace(/\s*\([^)]*\)$/," ").trim();
+    document.getElementById("welder").value=item.welder||""; document.getElementById("jenisTuk").value=item.jenisTuk||"Sewaktu"; document.getElementById("tuk").value=item.tuk||"";
+    document.getElementById("tanggal").value=item.tanggal||""; document.getElementById("tanggalAkhir").value=item.tanggalAkhir||""; document.getElementById("ttd").value=item.tanggalTTD||getTodayLocal();
+    setAsesiNames(item.namaList||String(item.nama||"").split("\n").filter(Boolean)); toggleWelder(); window.scrollTo({top:0,behavior:"smooth"});
+    alert("Data dimuat ke form. Silakan perbaiki lalu tekan Generate.");
+}
+function hapusRecord(index){
+    const item=db[index]; if(!item) return; if(!confirm("Hapus surat "+item.nomor+" dari database?")) return;
+    db.splice(index,1); localStorage.setItem("db_suket_lsp_las",JSON.stringify(db)); editingIndex=-1; currentRecord=null; renderTable(); autoNomor();
 }
 
 /* =====================================================
@@ -721,242 +782,30 @@ function renderTable(){
 ===================================================== */
 
 function generate(){
-    const nomor = document.getElementById("nomor").value.trim();
-    const nama = document.getElementById("nama").value.trim();
-    const skema = document.getElementById("skema").value;
-    const welder = document.getElementById("welder").value.trim();
-    const jenisTuk = document.getElementById("jenisTuk").value;
-    const tuk = document.getElementById("tuk").value.trim();
-    const tanggal = document.getElementById("tanggal").value;
-    const ttd = document.getElementById("ttd").value;
-
-    if(!nomor){
-        alert("Nomor surat belum diisi.");
-        return;
-    }
-
-    if(!nama){
-        alert("Nama asesi belum diisi.");
-        return;
-    }
-
-    if(!tanggal){
-        alert("Tanggal Uji belum diisi.");
-        return;
-    }
-
-    if(!ttd){
-        alert("Tanggal Tanda Tangan belum diisi.");
-        return;
-    }
-
-    if(
-        (skema === "Fillet Welder" ||
-         skema === "Plate Welder" ||
-         skema === "Pipe Welder") &&
-        !welder
-    ){
-        alert("Posisi / Proses belum diisi.");
-        return;
-    }
-
-    if(!tuk){
-        alert("Nama TUK belum diisi.");
-        return;
-    }
-
-    saveWelder(welder);
-    saveTuk(tuk);
-    loadWelder();
-    loadTuk();
-
-    let skemaFinal = skema;
-    if(welder){
-        skemaFinal += " (" + escapeHtml(welder) + ")";
-    }
-
-    const nomorSafe = escapeHtml(nomor);
-    const namaSafe = escapeHtml(nama);
-    const jenisTukSafe = escapeHtml(jenisTuk);
-    const tukSafe = escapeHtml(tuk);
-
-    const tglUji = formatTanggal(tanggal);
-    const tglTTD = formatTanggal(ttd);
-
-    const html = `
-        <div class="kop">
-            <table>
-                <tr>
-                    <td class="logo-cell-left">
-                        <img src="logo_lsp.png" class="logo-lsp" alt="Logo LSP" loading="eager" onerror="if(this.dataset.fallback!=='1'){this.dataset.fallback='1';this.src='logo_lsp.jpg';}else{this.style.display='none';}">
-                    </td>
-
-                    <td class="logo-cell-center">
-                        <div class="nama-lembaga">
-                            <h1>LEMBAGA SERTIFIKASI PROFESI LAS</h1>
-                            <h2>(LSP-LAS)</h2>
-                            <div class="izin">
-                                Lisensi BNSP No. BNSP-LSP-024-ID
-                                Tanggal 30 Januari 2026-2031,
-                                Akta Notaris : Rismalena Kasri, S.H
-                                No : 15 Tgl : 29 Mei 2007
-                            </div>
-                        </div>
-                    </td>
-
-                    <td class="logo-cell-right">
-                        <img src="logo_bnsp.png" class="logo-bnsp" alt="Logo BNSP" loading="eager" onerror="if(this.dataset.fallback!=='1'){this.dataset.fallback='1';this.src='logo_bnsp.jpg';}else{this.style.display='none';}">
-                    </td>
-                </tr>
-            </table>
-        </div>
-
-        <div class="judul">
-            <h2>SURAT KETERANGAN</h2>
-            <h3>${nomorSafe}</h3>
-        </div>
-
-        <div class="isi">
-            Lembaga Sertifikasi Profesi Las (LSP-LAS)
-            dengan ini menerangkan bahwa :
-
-            <div class="nama-asesi">
-                ${namaSafe}
-            </div>
-
-            Telah mengikuti Uji Kompetensi pada bidang Jasa Industri Pengelasan :
-
-            <div class="skema">
-                ${skemaFinal}
-            </div>
-
-            Yang diselenggarakan oleh Lembaga Sertifikasi
-            Profesi Las (LSP-LAS) di TUK-LAS
-            ${jenisTukSafe} ${tukSafe}
-            pada tanggal ${escapeHtml(tglUji)}.
-
-            <br><br>
-
-            Dengan Hasil :
-
-            <div class="hasil">
-                Kompeten
-            </div>
-
-            Surat Keterangan ini dibuat sebagai pengganti sementara
-            atas Sertifikat Kompetensi yang saat ini sedang dalam
-            proses pengajuan ke BNSP.
-
-            <br><br>
-
-            Demikian Surat Keterangan ini dibuat untuk dipergunakan
-            sebagaimana mestinya.
-
-            <div class="ttd">
-                <div class="ttd-area">
-                    <div class="ttd-kota">
-                        Jakarta, ${escapeHtml(tglTTD)}
-                    </div>
-
-                    <div class="ttd-jabatan">
-                        Direktur
-                    </div>
-
-                    <div class="signature-visual">
-                        <img src="sunoto.jpeg" class="ttd-img" alt="Tanda tangan" loading="eager" onerror="if(this.dataset.fallback!=='1'){this.dataset.fallback='1';this.src='sunoto.png';}else{this.style.display='none';}">
-                        <img src="cap.jpeg" class="cap" alt="Cap" loading="eager" onerror="if(this.dataset.fallback!=='1'){this.dataset.fallback='1';this.src='cap.png';}else{this.style.display='none';}">
-                    </div>
-
-                    <div class="nama-direktur">
-                        Ir. Sunoto Mudiantoro, M.T
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="footer">
-            Casa Residence Jl. Bima II Blok A8 No.30A,
-            Cijantung, Kec. Ps. Rebo,
-            Kota Jakarta Timur,
-            Daerah Khusus Ibukota Jakarta 13770.<br>
-            Telp/WA 0819-17-100-200,
-            Bank Mandiri KCP Jakarta Mampang Inspirasi
-            Rek.No. 1177 00513 1970
-        </div>
-    `;
-
-    document.getElementById("print").innerHTML = html;
-
-    /* Snapshot surat yang benar untuk PDF */
-    currentRecord = {
-        nomor,
-        nama,
-        skema: skemaFinal.replace(/<[^>]*>/g,""),
-        jenisTuk,
-        tuk,
-        tanggal,
-        tanggalTTD: ttd,
-        welder
-    };
-
-    /* Simpan database, tetapi jangan menggandakan nomor yang sama */
-    const sudahAda = db.some(item => item.nomor === nomor);
-
-    if(!sudahAda){
-        db.push({
-            nomor,
-            nama,
-            skema: skemaFinal.replace(/<[^>]*>/g,""),
-            jenisTuk,
-            tuk,
-            tanggal,
-            tanggalTTD: ttd,
-            welder
-        });
+    const nomor=document.getElementById("nomor").value.trim(); const namaList=getAsesiNames(); const skema=document.getElementById("skema").value;
+    const welder=document.getElementById("welder").value.trim(); const jenisTuk=document.getElementById("jenisTuk").value; const tuk=document.getElementById("tuk").value.trim();
+    const tanggal=document.getElementById("tanggal").value; const tanggalAkhir=document.getElementById("tanggalAkhir").value; const ttd=document.getElementById("ttd").value;
+    if(!nomor){alert("Nomor surat belum diisi.");return;} if(!namaList.length){alert("Nama asesi belum diisi.");return;} if(!tanggal){alert("Tanggal Uji belum diisi.");return;}
+    if(tanggalAkhir&&tanggalAkhir<tanggal){alert("Tanggal selesai tidak boleh sebelum tanggal mulai.");return;} if(!ttd){alert("Tanggal Tanda Tangan belum diisi.");return;}
+    if((skema==="Fillet Welder"||skema==="Plate Welder"||skema==="Pipe Welder")&&!welder){alert("Posisi / Proses belum diisi.");return;} if(!tuk){alert("Nama TUK belum diisi.");return;}
+    saveWelder(welder); saveTuk(tuk); loadWelder(); loadTuk();
+    const skemaFinal=skema+(welder?" ("+welder+")":""); const tanggalRange=formatTanggalRange(tanggal,tanggalAkhir);
+    let namaHtml;
+    if(namaList.length===1){
+        namaHtml=escapeHtml(namaList[0]);
     }else{
-        /* Kalau nomor sama, update datanya */
-        const index = db.findIndex(item => item.nomor === nomor);
-        if(index >= 0){
-            db[index] = {
-                ...db[index],
-                nomor,
-                nama,
-                skema: skemaFinal.replace(/<[^>]*>/g,""),
-                jenisTuk,
-                tuk,
-                tanggal,
-                tanggalTTD: ttd,
-                welder
-            };
-        }
+        const kelasKolom=namaList.length>=10?" two-col":"";
+        namaHtml='<div class="asesi-list-pdf'+kelasKolom+'">'+namaList.map((n,i)=>'<div class="asesi-item-pdf">'+(i+1)+'. '+escapeHtml(n)+'</div>').join("")+'</div>';
     }
-
-    /* Nomor manual yang dipakai menjadi acuan nomor berikutnya */
-    const match = nomor.match(/SUKET\/(\d+)/i);
-    if(match){
-        const nomorSekarang = parseInt(match[1],10);
-        const lastStored = Number(localStorage.getItem("last_sequence_suket_lsp_las")) || 0;
-
-        if(!isNaN(nomorSekarang) && nomorSekarang > lastStored){
-            localStorage.setItem(
-                "last_sequence_suket_lsp_las",
-                String(nomorSekarang)
-            );
-        }
-    }
-
-    localStorage.setItem(
-        "db_suket_lsp_las",
-        JSON.stringify(db)
-    );
-
-    renderTable();
-
-    /* Setelah Generate, form pindah ke nomor berikutnya.
-       Preview tetap menggunakan nomor surat yang baru saja dibuat. */
-    autoNomor();
-
-    alert("Surat berhasil di-generate.");
+    document.getElementById("print").innerHTML=`
+    <div class="kop"><table><tr><td class="logo-cell-left"><img src="logo_lsp.png" class="logo-lsp" alt="Logo LSP" onerror="if(this.dataset.fallback!=="1"){this.dataset.fallback="1";this.src="logo_lsp.jpg";}else{this.style.display="none";}"></td><td class="logo-cell-center"><div class="nama-lembaga"><h1>LEMBAGA SERTIFIKASI PROFESI LAS</h1><h2>(LSP-LAS)</h2><div class="izin">Lisensi BNSP No. BNSP-LSP-024-ID Tanggal 30 Januari 2026-2031, Akta Notaris : Rismalena Kasri, S.H No : 15 Tgl : 29 Mei 2007</div></div></td><td class="logo-cell-right"><img src="logo_bnsp.png" class="logo-bnsp" alt="Logo BNSP" onerror="if(this.dataset.fallback!=="1"){this.dataset.fallback="1";this.src="logo_bnsp.jpg";}else{this.style.display="none";}"></td></tr></table></div>
+    <div class="judul"><h2>SURAT KETERANGAN</h2><h3>${escapeHtml(nomor)}</h3></div>
+    <div class="isi">Lembaga Sertifikasi Profesi Las (LSP-LAS) dengan ini menerangkan bahwa :<div class="nama-asesi">${namaHtml}</div>Telah mengikuti Uji Kompetensi pada bidang Jasa Industri Pengelasan :<div class="skema">${escapeHtml(skemaFinal)}</div>Yang diselenggarakan oleh Lembaga Sertifikasi Profesi Las (LSP-LAS) di TUK-LAS ${escapeHtml(jenisTuk)} ${escapeHtml(tuk)} pada tanggal ${escapeHtml(tanggalRange)}.<br><br>Dengan Hasil :<div class="hasil">Kompeten</div>Surat Keterangan ini dibuat sebagai pengganti sementara atas Sertifikat Kompetensi yang saat ini sedang dalam proses pengajuan ke BNSP.<br><br>Demikian Surat Keterangan ini dibuat untuk dipergunakan sebagaimana mestinya.<div class="ttd"><div class="ttd-area"><div class="ttd-kota">Jakarta, ${escapeHtml(formatTanggal(ttd))}</div><div class="ttd-jabatan">Direktur</div><div class="signature-visual"><img src="sunoto.png" class="ttd-img" alt="Tanda tangan" loading="eager" onerror="if(this.dataset.fallback!=="1"){this.dataset.fallback="1";this.src="sunoto.png";}else{this.style.display="none";}"><img src="cap.png" class="cap" alt="Cap" loading="eager" onerror="if(this.dataset.fallback!=="1"){this.dataset.fallback="1";this.src="cap.png";}else{this.style.display="none";}"></div><div class="nama-direktur">Ir. Sunoto Mudiantoro, M.T</div></div></div></div>
+    <div class="footer">Casa Residence Jl. Bima II Blok A8 No.30A, Cijantung, Kec. Ps. Rebo, Kota Jakarta Timur, Daerah Khusus Ibukota Jakarta 13770.<br>Telp/WA 0819-17-100-200, Bank Mandiri KCP Jakarta Mampang Inspirasi Rek.No. 1177 00513 1970</div>`;
+    const record={nomor,nama:namaList.join("\n"),namaList,skema:skemaFinal,skemaBase:skema,jenisTuk,tuk,tanggal,tanggalAkhir,tanggalTTD:ttd,welder}; currentRecord={...record};
+    if(editingIndex>=0&&db[editingIndex]){db[editingIndex]=record;editingIndex=-1;}else{const idx=db.findIndex(x=>x.nomor===nomor);if(idx>=0)db[idx]=record;else db.push(record);}
+    const match=nomor.match(/SUKET\/(\d+)/i); if(match){const n=parseInt(match[1],10);const last=Number(localStorage.getItem("last_sequence_suket_lsp_las"))||0;if(!isNaN(n)&&n>last)localStorage.setItem("last_sequence_suket_lsp_las",String(n));}
+    localStorage.setItem("db_suket_lsp_las",JSON.stringify(db)); renderTable(); autoNomor(); alert("Surat berhasil di-generate.");
 }
 
 /* =====================================================
@@ -1037,7 +886,8 @@ async function downloadPDF(){
     clone.style.padding = "30px 62px 78px";
     clone.style.background = "#fff";
     clone.style.overflow = "hidden";
-    clone.style.zIndex = "-1";
+    clone.style.zIndex = "99999";
+    clone.style.pointerEvents = "none";
 
     document.body.appendChild(clone);
 
@@ -1056,8 +906,8 @@ async function downloadPDF(){
             windowWidth:794,
             windowHeight:1123,
             backgroundColor:"#ffffff",
-            useCORS:true,
-            allowTaint:false,
+            useCORS:false,
+            allowTaint:true,
             logging:false,
             scrollX:0,
             scrollY:0,
@@ -1092,7 +942,7 @@ async function downloadPDF(){
     }catch(error){
         console.error("PDF ERROR:", error);
         alert(
-            "PDF gagal dibuat. Pastikan file logo_lsp.png, logo_bnsp.png, sunoto.jpeg/sunoto.png dan cap.jpeg/cap.png ada di folder yang sama."
+            "PDF gagal dibuat. Pastikan file logo_lsp.png, logo_bnsp.png, sunoto.png/sunoto.png dan cap.png/cap.png ada di folder yang sama."
         );
     }finally{
         clone.remove();
@@ -1265,6 +1115,7 @@ setTanggalTTDHariIni();
 loadWelder();
 loadTuk();
 toggleWelder();
+if(!document.getElementById("ttd").value){ document.getElementById("ttd").value=getTodayLocal(); }
 renderTable();
 autoNomor();
 </script>
